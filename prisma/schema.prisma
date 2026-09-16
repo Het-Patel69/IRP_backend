@@ -1,0 +1,188 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model User {
+  id                      Int                      @id @default(autoincrement())
+  email                   String                   @unique
+  passwordHash            String
+  firstName               String
+  lastName                String?
+  phone                   String?
+  emailVerified           Boolean                  @default(false)
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  deletedAt               DateTime?
+  isAdmin                 Boolean                  @default(false)
+  claims                  Claim[]
+  emailVerificationTokens EmailVerificationToken[]
+  listings                Listing[]
+  passwordResetTokens     PasswordResetToken[]
+
+  @@index([deletedAt])
+}
+
+model Listing {
+  id             Int            @id @default(autoincrement())
+  donorId        Int
+  title          String
+  description    String         @db.Text
+  allocationMode AllocationMode
+  status         ListingStatus  @default(OPEN)
+  availableFrom  DateTime?
+  availableUntil DateTime?
+  pickupAddress  String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deletedAt      DateTime?
+  claims         Claim[]
+  donor          User           @relation(fields: [donorId], references: [id])
+  images         ListingImage[]
+  items          ListingItem[]
+
+  @@index([donorId])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model ListingItem {
+  id                   Int                 @id @default(autoincrement())
+  listingId            Int
+  categoryId           Int?
+  storageRequirementId Int?
+  name                 String
+  quantity             Decimal             @db.Decimal(10, 2)
+  unit                 String
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  deletedAt            DateTime?
+  claimItems           ClaimItem[]
+  category             Category?           @relation(fields: [categoryId], references: [id])
+  listing              Listing             @relation(fields: [listingId], references: [id])
+  storageRequirement   StorageRequirement? @relation(fields: [storageRequirementId], references: [id])
+
+  @@index([listingId])
+  @@index([categoryId])
+  @@index([storageRequirementId])
+  @@index([deletedAt])
+}
+
+model Claim {
+  id         Int         @id @default(autoincrement())
+  listingId  Int
+  receiverId Int
+  status     ClaimStatus @default(PENDING)
+  notes      String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  deletedAt  DateTime?
+  listing    Listing     @relation(fields: [listingId], references: [id])
+  receiver   User        @relation(fields: [receiverId], references: [id])
+  items      ClaimItem[]
+
+  @@index([listingId])
+  @@index([receiverId])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model ClaimItem {
+  id            Int         @id @default(autoincrement())
+  claimId       Int
+  listingItemId Int
+  requestedQty  Decimal     @db.Decimal(10, 2)
+  approvedQty   Decimal?    @db.Decimal(10, 2)
+  claim         Claim       @relation(fields: [claimId], references: [id])
+  listingItem   ListingItem @relation(fields: [listingItemId], references: [id])
+
+  @@unique([claimId, listingItemId])
+  @@index([listingItemId])
+}
+
+model Category {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+  listingItems ListingItem[]
+
+  @@index([deletedAt])
+}
+
+model StorageRequirement {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  description  String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+  listingItems ListingItem[]
+
+  @@index([deletedAt])
+}
+
+model ListingImage {
+  id        Int       @id @default(autoincrement())
+  listingId Int
+  url       String
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+  listing   Listing   @relation(fields: [listingId], references: [id])
+
+  @@index([listingId])
+  @@index([deletedAt])
+}
+
+model EmailVerificationToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+enum AllocationMode {
+  FIRST_COME_FIRST_SERVED
+  MANUAL_APPROVAL
+}
+
+enum ListingStatus {
+  OPEN
+  CLOSED
+  COMPLETED
+  CANCELLED
+}
+
+enum ClaimStatus {
+  PENDING
+  APPROVED
+  PARTIALLY_APPROVED
+  REJECTED
+  CANCELLED
+  COMPLETED
+}
